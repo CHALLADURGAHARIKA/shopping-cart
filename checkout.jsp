@@ -63,11 +63,12 @@
                 <th>Product Name</th>
                 <th>Quantity</th>
                 <th>Product Price</th>
-                <th>without gst</th>
+                <th>discount</th>
                 <th>Product GST</th>
                 <th>Actual Amount</th>
-                <th>GST percentage</th>
-                <th>shipping</th>
+                <th>total product price</th>
+                <th>shipping value</th>
+               
             </tr>
         </thead>
         <tbody>
@@ -76,41 +77,59 @@
             PreparedStatement statement = null;
             ResultSet resultSet = null;
             int totalAmount = 0 ;
+            int tpq=0;
             double ship=100;
+            int total=0;
+           double totalshipcharges=0;
+           int quantity=0;
+           int  productId=0;
             try {
                 connection = YourDatabaseConnection.getConnection(); // Implement your database connection method
-                String query = "SELECT c.product_id, c.product_name, COUNT(*) AS quantity, p.productprice, " +
-                        "COUNT(*) * p.productprice AS total_price, g.gst " +
+                String query = "SELECT c.product_id, c.product_name, COUNT(*) AS quantity, " +
+                        "p.productprice, COUNT(*) * p.productprice AS total_price, " +
+                        "g.gst, d.discount " +
                         "FROM carts181 c " +
                         "JOIN product181 p ON c.product_id = p.productid " +
                         "JOIN gst181 g ON p.producthsn = g.producthsn " +
-                        "GROUP BY c.product_id, c.product_name, p.productprice, g.gst";
+                        "JOIN dproduct181 d ON p.productid = d.productid " +
+                        "GROUP BY c.product_id, c.product_name, p.productprice, g.gst, d.discount";
+
                 statement = connection.prepareStatement(query);
                 resultSet = statement.executeQuery();
 
                 while (resultSet.next()) {
-                    int productId = resultSet.getInt("product_id");
+                    productId = resultSet.getInt("product_id");
                     String productName = resultSet.getString("product_name");
-                    int quantity = resultSet.getInt("quantity");
-                    int productPrice = resultSet.getInt("total_price");
+                     quantity = resultSet.getInt("quantity");
+                    int productPrice = resultSet.getInt("productprice");
                     int gst = resultSet.getInt("gst");
+                    int discount=resultSet.getInt("discount");
                     int originalPrice = quantity * productPrice;
-                    double totalPrice = (int) ((double) (quantity * productPrice) / (1 + ((double)gst / 100)));
-                  
-                    double gstp =( (double)originalPrice -  (totalPrice))/100;
-                    totalAmount += originalPrice; 
-                  //  double shipproduct=(totalPrice/originalPrice)*ship;
+                    double totalPrice =  ((double) ( productPrice) / (1 + ((double)gst / 100)));
+                    double dis=totalPrice*((double)discount/100);
+                    double actualPrice=totalPrice-dis;
+                    double gstp =( (double)productPrice -  (totalPrice));
+                   double productgst=((actualPrice*gstp)/totalPrice);
+                   //System.out.println("jhssdhdghj"+productgst);
+                   total=(int)(actualPrice+productgst);
+                   tpq=(int)(actualPrice+productgst)*quantity;
+                   totalAmount+=tpq;
+                   double shipproduct=((double)total/totalAmount)* ship;
+                   double gship=(shipproduct*((double)gst/100))*quantity;
+                   totalshipcharges+=gship;
+                 
             %>
             <tr>                
                 <td><%= productId %></td>
                 <td><%= productName %></td>
                 <td><%= quantity %></td>
                 <td>$<%= productPrice %></td>
-                <td>$<%= originalPrice %></td>
-                <td>$<%= gst %></td>
-                <td>$<%= totalPrice %></td>
-                <td>$<%= gstp %></td>
-                <td><%= (totalPrice/totalAmount)*ship %></td>
+                <td>$<%= dis %></td>
+                <td>$<%= productgst %></td>
+                <td>$<%= actualPrice %></td>
+                <td>$<%=total %></td>
+                <td><%=gship %></td>
+                
             </tr>
             <% 
                 }
@@ -132,27 +151,27 @@
             %>
               <tr  class="total-row">
                 <td colspan="8" style="text-align: right;"><strong>Total Amount:</strong></td>
-                <td>$<%= totalAmount %></td>
+                <td>$<%=totalAmount %></td>
             </tr>
             
               <%
-              double shippingCharges =100;
+              double shippingCharges =0;
 
            // Query to fetch shipping charges based on the total amount
-          String shippingQuery = "SELECT ship_value FROM shipping181 WHERE " + totalAmount + " BETWEEN ship_from AND ship_to";
+          String shippingQuery = "SELECT ship_value FROM shipping181 WHERE ? BETWEEN ship_from AND ship_to";
 
            try {
                connection = YourDatabaseConnection.getConnection(); // Implement your database connection method
                statement = connection.prepareStatement(shippingQuery);
-              // statement.setInt(1, totalAmount);
+              statement.setInt(1,tpq);
              
                resultSet = statement.executeQuery();
-               System.out.println("ksks-------------"+shippingCharges);
+              
                
                if (resultSet.next()) {
                    shippingCharges = resultSet.getInt("ship_value");
-                   System.out.println(resultSet.getInt("ship_value"));
-                   System.out.println("ks------------"+shippingCharges);
+                // System.out.println(shippingCharges);
+                  
                }
            } catch (SQLException e) {
                e.printStackTrace(); // Handle database errors appropriately
@@ -170,23 +189,58 @@
                 }
             }
 
-           double finalBill = totalAmount + shippingCharges;
-           System.out.println("bnn"+totalAmount);
-           System.out.println("jjj"+shippingCharges);
-           System.out.println("kj"+finalBill);
+           double finalBill = totalAmount+ shippingCharges+ totalshipcharges;
+          
+          
 
     %>
-   <!--   <tr class="total-row">
-        <td colspan="5" style="text-align: right;"><strong>Shipping Charges:</strong></td>
+   <tr class="total-row">
+        <td colspan="8" style="text-align: right;"><strong>Shipping Charges:</strong></td>
         <td>$<%= shippingCharges %></td>
     </tr>
     <tr class="total-row">
-        <td colspan="5" style="text-align: right;"><strong>Final Bill:</strong></td>
+        <td colspan="8" style="text-align: right;"><strong>Final Bill:</strong></td>
         <td>$<%= finalBill %></td>
     </tr>
         </tbody>        
-    </table>    -->
- 
+    </table>   
+  <form>
+        <input type="text" id="coupon" placeholder="Enter Coupon Code">
+        <button type="button" onClick='applyCoupon()'>Apply Coupon</button>
+    </form>
+    
+
+  <script>
+
+    function applyCoupon() {
+        var couponCode = document.getElementById("coupon").value;
+        var finalBill = <%= finalBill %>;
+      
+        var xhttp = new XMLHttpRequest();
+        xhttp.onreadystatechange = function() {
+            if (this.readyState == 4) {
+                if (this.status == 200) {
+                    var response = this.responseText;
+                    if (response === "success") {
+                    	
+                        alert("Coupon applied successfully!");
+                        window.location.reload();
+                    } else {
+                        alert("Coupon application failed: " + response); // Display error message
+                    }
+                } else {
+                    alert("Coupon application failed. Please try again. Error: " + xhttp.statusText); // Display HTTP status text
+                }
+            }
+        };
+        xhttp.open("POST", "ApplyCouponServlet", true);
+        xhttp.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
+        xhttp.send("couponCode=" + encodeURIComponent(couponCode) + "&finalBill=" + finalBill );
+    }
+</script>
+  
+    
+    
    <form action="https://www.example.com/payment/success/" method="POST">
 <script
     src="https://checkout.razorpay.com/v1/checkout.js"
