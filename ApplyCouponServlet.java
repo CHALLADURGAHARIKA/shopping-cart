@@ -24,6 +24,8 @@ public class ApplyCouponServlet extends HttpServlet {
 
 		try {
 			connection = YourDatabaseConnection.getConnection(); // Implement your database connection method
+
+			// Check coupon validity and apply if valid
 			String query = "SELECT * FROM coupons181 WHERE dcpn_code = ?";
 			statement = connection.prepareStatement(query);
 			statement.setString(1, couponCode);
@@ -34,7 +36,6 @@ public class ApplyCouponServlet extends HttpServlet {
 				int couponValue = resultSet.getInt("dcpn_value");
 				int couponCount = resultSet.getInt("dcpncount");
 				int couponMinValue = resultSet.getInt("dcpn_min_value");
-				// double finalBill = Double.parseDouble(request.getParameter("finalBill"));
 
 				if (finalBill >= couponMinValue && couponCount > 0) {
 					// Apply coupon
@@ -53,17 +54,36 @@ public class ApplyCouponServlet extends HttpServlet {
 																		// ID
 					statement.setDouble(3, finalBill);
 					statement.executeUpdate();
-
-					// return success
-					response.getWriter().write("success");
 				} else {
 					// Coupon not applicable
 					response.getWriter().write("invalid");
+					return;
 				}
 			} else {
 				// Coupon not found
 				response.getWriter().write("not_found");
+				return;
 			}
+
+			// Update product stock table
+			String productQuery = "SELECT c.product_id, COUNT(*) AS quantity FROM carts181 c GROUP BY c.product_id";
+			statement = connection.prepareStatement(productQuery);
+			resultSet = statement.executeQuery();
+
+			while (resultSet.next()) {
+				int productId = resultSet.getInt("product_id");
+				int quantity = resultSet.getInt("quantity");
+
+				// Update product stock table
+				String updateStockQuery = "UPDATE productstock181 SET stock = stock - ? WHERE productid = ?";
+				statement = connection.prepareStatement(updateStockQuery);
+				statement.setInt(1, quantity);
+				statement.setInt(2, productId);
+				statement.executeUpdate();
+			}
+
+			// Return success
+			response.getWriter().write("success");
 		} catch (SQLException e) {
 			e.printStackTrace(); // Handle database errors appropriately
 			response.getWriter().write("database_error");
