@@ -96,6 +96,29 @@
             <button type="submit">Search</button>
         </form>
     </div>
+    <% 
+		if(session.getAttribute("username")==null)
+		{
+			
+		%>
+			<div id="login">
+				<a href="login.jsp">login<i class="fa fa-sign-in"></i></a>
+			</div>
+			<div id="signup">
+				<a href="signup.html">signup<i class="fa fa-user-plus" aria-hidden="true"></i></a>
+			</div>
+		<%
+			}
+			else
+			{
+		%>
+		<div>
+		welcome <%=session.getAttribute("username") %>
+		<input type="text"id="custid" value=<%=session.getAttribute("id") %> name="id" hidden>
+		</div>
+		<%
+			}
+		%>
     <div class="container">
         <% 
             List<Product> products = (List<Product>)request.getAttribute("products");
@@ -117,7 +140,6 @@
                     <label for="pincode">Enter Pincode:</label>
        				<input type="text" id="pincode" name="pincode">
                     <button type="submit" class="btn-add-to-cart" >Add to Cart</button>
-
       </form>
             </div>
         </div>
@@ -127,7 +149,7 @@
         %>
     </div>
     <div  class="check-cart-button">
-        <form action="Cart" method="get">
+        <form action="login.jsp" method="get">
             <button type="submit">Check Cart Items</button>
         </form>
     </div>
